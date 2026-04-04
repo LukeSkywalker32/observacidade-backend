@@ -16,8 +16,10 @@
     "multer": "^2.0.2",
     "streamifier": "^0.1.1"
   },
-  "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts"
+"scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
