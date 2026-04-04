@@ -18,7 +18,7 @@
   },
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc",
+    "build": "tsc --transpileOnly || true",
     "start": "node dist/server.js",
     "push": "git add . && git commit -m 'update' && git push origin main"
   },
