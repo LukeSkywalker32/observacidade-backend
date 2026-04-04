@@ -16,10 +16,10 @@
     "multer": "^2.0.2",
     "streamifier": "^0.1.1"
   },
-  "scripts": {
+ "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc --transpileOnly || true",
-    "start": "node dist/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
     "push": "git add . && git commit -m 'update' && git push origin main"
   },
   "devDependencies": {
