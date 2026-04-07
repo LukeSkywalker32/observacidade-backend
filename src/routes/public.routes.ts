@@ -4,9 +4,9 @@ import { listOccurrences } from "../controllers/occurrence.controller";
 const router = Router();
 
 router.get("/map", (req, res) => {
-    return res.json({
-        message: "Mapa público acessível",
-    });
+	return res.json({
+		message: "Mapa público acessível",
+	});
 });
 
 router.get("/occurrences", listOccurrences);

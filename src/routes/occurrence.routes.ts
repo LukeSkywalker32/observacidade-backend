@@ -1,5 +1,9 @@
 import { Router } from "express";
-import { createOccurrence, listMyOccurrences, listOccurrences } from "../controllers/occurrence.controller";
+import {
+	createOccurrence,
+	listMyOccurrences,
+	listOccurrences,
+} from "../controllers/occurrence.controller";
 import { authMiddleware } from "../middlewares/auth.middleware";
 
 const router = Router();
