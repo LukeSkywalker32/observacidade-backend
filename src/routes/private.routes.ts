@@ -57,14 +57,14 @@ router.post(
 					message: "Documento é obrigatório",
 				});
 			}
-
+			//Envia o documento para o cloudinary
 			const documentUrl = await uploadToCloudinary(
 				req.file.buffer,
 				req.file.mimetype,
 				req.file.originalname,
 				"observacidade/documentos",
 			);
-
+			//busca usuario atual antes de enviar o novo documento
 			const user = await User.findByIdAndUpdate(
 				req.userId,
 				{
@@ -86,6 +86,8 @@ router.post(
 		}
 	},
 );
+
+// Rota para atualizar avatar
 router.post(
 	"/avatar",
 	upload.single("avatar"),
@@ -128,6 +130,7 @@ router.post(
 				await cloudinary.uploader.destroy(publicId);
 				// ↑ Cloudinary encontra e deleta a imagem corretamente
 			}
+
 			//Retorna o novo avatar
 			return res.json({
 				message: "Avatar atualizado com sucesso",
@@ -141,7 +144,9 @@ router.post(
 	},
 );
 
+//Rotas de ocorrências
 router.use("/occurrences", occurrenceRoutes);
+//Rotas de geocodificação
 router.use("/geocode", geocodeRoutes);
 
 export default router;
