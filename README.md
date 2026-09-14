@@ -69,7 +69,7 @@ O **ObservaCidade** nasceu da necessidade de empoderar cidadãos na construção
 | Tailwind CSS | Estilização |
 | React Router DOM | Navegação |
 | Axios | Requisições HTTP |
-| Google Maps API | Mapa interativo |
+| GeoLeaflet | Mapa interativo |
 | Capacitor | Build Android (APK) |
 
 ### Backend
@@ -133,7 +133,7 @@ observacidade-backend/
 - Node.js 18+
 - Yarn
 - MongoDB local ou Atlas
-- Chave da Google Maps API
+- Chave da GEOAPIFY
 
 ### Backend
 
@@ -181,14 +181,14 @@ CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
 CLOUDINARY_URL=
-GOOGLEMAPS_API_KEY=
+GEOAPIFY_API_KEY=
 PORT=5000
 ```
 
 **Frontend `.env`**
 ```env
 VITE_API_URL=http://localhost:5000/api
-VITE_GOOGLEMAPS_API_KEY=
+VITE_GEOAPIFY_API_KEY=
 ```
 
 ---
