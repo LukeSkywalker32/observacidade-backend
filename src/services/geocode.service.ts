@@ -2,7 +2,6 @@ import axios from "axios";
 
 //função que converte endereço em coordenadas
 export async function geoCoordinatesFromAddress(address: string) {
-	//const apiKey = process.env.GOOGLEMAPS_API_KEY;
 	const apiKey = process.env.GEOAPIFY_API_KEY;
 
 	if (!apiKey) {
@@ -16,23 +15,23 @@ export async function geoCoordinatesFromAddress(address: string) {
 				params: {
 					text: address, //endereço a ser consultado
 					apiKey: apiKey, //chave da API
-					filter: "countrycode: br", // Restringe a busca apenas ao Brasil
-					lang: "pt-BR", //retorna em portugues
-					limit: 1, // so precisamos do melhor resultado
+					filter: "countrycode:br", // Restringe a busca apenas ao Brasil
+					lang: "pt", //retorna em portugues
+					limit: 1, //só precisamos do melhor resultado
 				},
 			},
 		);
 
-		const results = response.data.results;
+		const results = response.data.features;
 
 		if (!results || results.length === 0) {
 			//se não houver resultados
 			throw new Error("Endereço não encontrado pelo Geoapify");
 		}
 
-    const { properties, geometry } = results [0];
-    const [lng, lat]= geometry.coordinates;
-    const state = properties.state || "São Paulo";
+		const { properties, geometry } = results[0];
+		const [lng, lat] = geometry.coordinates; // GeoJSON: [longitude, latitude]
+		const state = properties.state || "São Paulo";
 		const city = properties.city || properties.county || "São Paulo";
 
 		return {
@@ -43,9 +42,16 @@ export async function geoCoordinatesFromAddress(address: string) {
 		};
 	} catch (error) {
 		if (axios.isAxiosError(error)) {
-			throw new Error(
-				`Erro na API de Geocoding: ${error.response?.statusText || error.message}`,
+			console.error(
+				"Erro Geoapify (geocode/search):",
+				JSON.stringify(error.response?.data),
 			);
+			const detail =
+				error.response?.data?.message ||
+				error.response?.data?.error ||
+				error.response?.statusText ||
+				error.message;
+			throw new Error(`Erro na API de Geocoding: ${detail}`);
 		}
 		throw error;
 	}
@@ -60,10 +66,9 @@ export async function getCityFromCoordinates(lat: number, lng: number) {
 			{
 				params: {
 					lat: lat,
-					lng: lng,
-					key: apiKey,
-					lang: "pt-BR",
-					//result_type: "locality" // Força retornar apenas a cidade
+					lon: lng,
+					apiKey: apiKey,
+					lang: "pt",
 				},
 			},
 		);
