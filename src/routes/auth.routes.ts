@@ -50,9 +50,10 @@ router.post("/register", upload.single("document"), async (req, res) => {
 			userId: user._id,
 		});
 	} catch (error) {
+		//Loga internamente, devolve só mensagem genérica
+		console.error("[REGISTER ERROR]", error);
 		return res.status(500).json({
 			message: "Erro no cadastro",
-			error: error,
 		});
 	}
 });
@@ -74,9 +75,11 @@ router.post("/login", async (req, res) => {
 			return res.status(400).json({ message: "Credenciais inválidas" });
 		}
 
-		const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET as string, {
-			expiresIn: "1d",
-		});
+		const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET as string,
+      { expiresIn: "1d" },
+    );
 
 		return res.json({
 			token,
@@ -85,10 +88,14 @@ router.post("/login", async (req, res) => {
 				fullName: user.fullName,
 				email: user.email,
 				cpf: user.cpf,
+        role: user.role,
+        documentStatus: user.documentStatus,
+        avatarUrl: user.avatarUrl,
 			},
 		});
 	} catch (error) {
-		return res.status(500).json({ message: "Erro no login" });
+    console.error("[LOGIN ERROR]", error);
+    return res.status(500).json({ message: "Erro no login" });
 	}
 });
 
