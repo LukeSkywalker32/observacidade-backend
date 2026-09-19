@@ -1,8 +1,10 @@
 import { NextFunction, Request, Response } from "express";
+import { childLogger } from "../config/logger";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { Occurrence } from "../models/Occurrence";
 import { geoCoordinatesFromAddress } from "../services/geocode.service";
 
+const log = childLogger("occurrence");
 
 // POST /api/private/occurrences
 export async function createOccurrence(
@@ -13,17 +15,15 @@ export async function createOccurrence(
   try {
     const userId = req.userId;
     if (!userId) {
-      return res.status(401).json({
-        message: "Usuário não autenticado",
-      });
+      return res.status(401).json({ message: "Usuário não autenticado" });
     }
+
     const { type, address, description } = req.body as {
       type: string;
       address: string;
       description: string;
     };
 
-    //------------------------------GEOCODING--------------------------------
     const { latitude, longitude, state, city } =
       await geoCoordinatesFromAddress(address);
 
@@ -38,25 +38,32 @@ export async function createOccurrence(
       longitude,
     });
 
+    log.info(
+      {
+        occurrenceId: occurrence._id.toString(),
+        userId,
+        type,
+        city,
+      },
+      "Ocorrência criada",
+    );
+
     return res.status(201).json(occurrence);
   } catch (error) {
     const message =
-    error instanceof Error ? error.message: "Erro ao criar ocorrência";
-    console.error("[CREATE OCCURRENCE ERROR]", error);
+      error instanceof Error ? error.message : "Erro ao criar ocorrência";
+    log.error({ err: error, userId: req.userId }, "Erro ao criar ocorrência");
 
-      // se for erro de geocoding, devolve 422
-      if (message.includes("Endereço") || message.includes("Geocoding")) {
-        return res.status(422).json({message})
-      }
-      return res.status(500).json({message: "Erro ao criar ocorrência"})
+    if (message.includes("Endereço") || message.includes("Geocoding")) {
+      return res.status(422).json({ message });
     }
+
+    return res.status(500).json({ message: "Erro ao criar ocorrência" });
+  }
 }
 
-//GET /api/public/occurrences - publica, com paginação
-export async function listOccurrences(
-  req: Request,
-  res: Response
-) {
+// GET /api/public/occurrences
+export async function listOccurrences(req: Request, res: Response) {
   try {
     const {
       page = 1,
@@ -71,18 +78,20 @@ export async function listOccurrences(
       city?: string;
       state?: string;
     };
+
     const filter: Record<string, unknown> = {};
     if (type) filter.type = type;
     if (city) filter.city = city;
     if (state) filter.state = state;
 
-    const skip = (page -1 ) * limit;
+    const skip = (page - 1) * limit;
+
     const [occurrences, total] = await Promise.all([
       Occurrence.find(filter)
-      .select("-userId")
-      .sort({ createdAt: -1})
-      .skip(skip)
-      .limit(limit),
+        .select("-userId")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
       Occurrence.countDocuments(filter),
     ]);
 
@@ -92,14 +101,14 @@ export async function listOccurrences(
       total,
       totalPages: Math.ceil(total / limit),
       occurrences,
-    })    
+    });
   } catch (error) {
-    console.error("[LIST OCCUREENCES ERROR]",error);
-    return res.status(500).json({message: "Erro ao buscar ocorrências"});
+    log.error({ err: error }, "Erro ao listar ocorrências públicas");
+    return res.status(500).json({ message: "Erro ao buscar ocorrências" });
   }
 }
 
-// GET /api/private/occurrences/me — minhas ocorrências, com paginação
+// GET /api/private/occurrences/me
 export async function listMyOccurrences(req: AuthRequest, res: Response) {
   try {
     const userId = req.userId;
@@ -133,14 +142,14 @@ export async function listMyOccurrences(req: AuthRequest, res: Response) {
       occurrences,
     });
   } catch (error) {
-    console.error("[LIST MY OCCURRENCES ERROR]", error);
+    log.error({ err: error, userId: req.userId }, "Erro ao listar minhas ocorrências");
     return res
       .status(500)
       .json({ message: "Erro ao buscar suas ocorrências" });
   }
 }
 
-// GET /api/admin/occurrences — auditoria (admin)
+// GET /api/admin/occurrences
 export async function listAllOccurrencesAdmin(req: Request, res: Response) {
   try {
     const {
@@ -181,7 +190,7 @@ export async function listAllOccurrencesAdmin(req: Request, res: Response) {
       occurrences,
     });
   } catch (error) {
-    console.error("[LIST ADMIN OCCURRENCES ERROR]", error);
+    log.error({ err: error }, "Erro ao listar ocorrências admin");
     return res.status(500).json({ message: "Erro ao buscar ocorrências" });
   }
 }

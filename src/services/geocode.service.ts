@@ -1,4 +1,8 @@
 import axios from "axios";
+import { childLogger } from "../config/logger";
+import { retry } from "../utils/retry";
+
+const log = childLogger("geocode");
 
 // Timeout explícito — sem isso request trava indefinidamente se Geoapify engasgar
 const axiosInstance = axios.create({
@@ -17,89 +21,76 @@ export async function geoCoordinatesFromAddress(address: string) {
   if (!apiKey) {
     throw new Error("Chave de API não configurada");
   }
-  try {
-    const response = await axiosInstance.get(
-      "https://api.geoapify.com/v1/geocode/search",
-      {
-        params: {
-          text: address,
-          apiKey,
-          filter: "countrycode:br",
-          lang: "pt",
-          limit: 1,
+
+  return retry(
+    async () => {
+      const response = await axiosInstance.get(
+        "https://api.geoapify.com/v1/geocode/search",
+        {
+          params: {
+            text: address,
+            apiKey,
+            filter: "countrycode:br",
+            lang: "pt",
+            limit: 1,
+          },
         },
-      },
-    );
-    const results = response.data.features;
-    if (!results || results.length === 0) {
-      throw new Error("Endereço não encontrado pelo Geoapify");
-    }
-    const { properties, geometry } = results[0];
-    const [lng, lat] = geometry.coordinates;
-    const state = properties.state || "São Paulo";
-    const city = properties.city || properties.county || "São Paulo";
-    return {
-      latitude: lat,
-      longitude: lng,
-      state,
-      city,
-    };
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error(
-        "Erro Geoapify (geocode/search):",
-        JSON.stringify(error.response?.data),
       );
-      const detail =
-        error.response?.data?.message ||
-        error.response?.data?.error ||
-        error.response?.statusText ||
-        error.message;
-      throw new Error(`Erro na API de Geocoding: ${detail}`);
-    }
-    throw error;
-  }
+      const results = response.data.features;
+      if (!results || results.length === 0) {
+        throw new Error("Endereço não encontrado pelo Geoapify");
+      }
+      const { properties, geometry } = results[0];
+      const [lng, lat] = geometry.coordinates;
+      const state = properties.state || "São Paulo";
+      const city = properties.city || properties.county || "São Paulo";
+      log.debug({ address, lat, lng, city, state }, "Endereço geocodificado");
+      return {
+        latitude: lat,
+        longitude: lng,
+        state,
+        city,
+      };
+    },
+    { context: "geocode.search" },
+  );
 }
 
 // Converte coordenadas em endereço (nome da cidade)
 export async function getCityFromCoordinates(lat: number, lng: number) {
   const apiKey = process.env.GEOAPIFY_API_KEY;
-  try {
-    const response = await axiosInstance.get(
-      "https://api.geoapify.com/v1/geocode/reverse",
-      {
-        params: {
-          lat,
-          lon: lng,
-          apiKey,
-          lang: "pt",
+
+  return retry(
+    async () => {
+      const response = await axiosInstance.get(
+        "https://api.geoapify.com/v1/geocode/reverse",
+        {
+          params: {
+            lat,
+            lon: lng,
+            apiKey,
+            lang: "pt",
+          },
         },
-      },
-    );
-    const results = response.data.features;
-    if (results && results.length > 0) {
-      for (const result of results) {
-        const city = result.properties.city || result.properties.county;
-        if (city) {
-          return city;
+      );
+      const results = response.data.features;
+      if (results && results.length > 0) {
+        for (const result of results) {
+          const city = result.properties.city || result.properties.county;
+          if (city) {
+            return city;
+          }
         }
       }
-    }
-    return "Localização desconhecida";
-  } catch (error) {
-    console.error("Falha na Geolocalização:", error);
-    return "Erro ao obter localização";
-  }
+      return "Localização desconhecida";
+    },
+    { context: "geocode.reverse" },
+  );
 }
 
 /**
  * Autocomplete — devolve no formato cru do Geoapify ({ results: [...] })
  * pra o front poder usar diretamente.
- *
- * Diferente do /search, o /autocomplete:
- *  - usa format=json (não geojson)
- *  - suporta parâmetro bias=proximity:lng,lat pra priorizar perto do usuário
- *  - retorna lista de sugestões, não features
  */
 export async function autocompleteAddress({
   text,
@@ -111,42 +102,30 @@ export async function autocompleteAddress({
     throw new Error("Chave de API não configurada");
   }
 
-  try {
-    const params: Record<string, string | number> = {
-      text,
-      apiKey,
-      filter: "countrycode:br",
-      lang: "pt",
-      format: "json",
-      limit,
-    };
+  return retry(
+    async () => {
+      const params: Record<string, string | number> = {
+        text,
+        apiKey,
+        filter: "countrycode:br",
+        lang: "pt",
+        format: "json",
+        limit,
+      };
 
-    if (bias) {
-      params.bias = `proximity:${bias.lng},${bias.lat}`;
-    }
+      if (bias) {
+        params.bias = `proximity:${bias.lng},${bias.lat}`;
+      }
 
-    const response = await axiosInstance.get(
-      "https://api.geoapify.com/v1/geocode/autocomplete",
-      { params },
-    );
-
-    // Devolve no formato cru — front espera { results: [...] }
-    return {
-      results: response.data.results ?? [],
-    };
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error(
-        "Erro Geoapify (geocode/autocomplete):",
-        JSON.stringify(error.response?.data),
+      const response = await axiosInstance.get(
+        "https://api.geoapify.com/v1/geocode/autocomplete",
+        { params },
       );
-      const detail =
-        error.response?.data?.message ||
-        error.response?.data?.error ||
-        error.response?.statusText ||
-        error.message;
-      throw new Error(`Erro no autocomplete: ${detail}`);
-    }
-    throw error;
-  }
+
+      return {
+        results: response.data.results ?? [],
+      };
+    },
+    { context: "geocode.autocomplete" },
+  );
 }

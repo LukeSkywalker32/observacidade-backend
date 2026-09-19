@@ -1,15 +1,16 @@
 import { Router } from "express";
 import {
-	createOccurrence,
-	listMyOccurrences,
-	listOccurrences,
+  createOccurrence,
+  listMyOccurrences,
 } from "../controllers/occurrence.controller";
-import { authMiddleware } from "../middlewares/auth.middleware";
+import { requireApprovedDocument } from "../middlewares/document-status.middleware";
 
 const router = Router();
 
-router.post("/", authMiddleware, createOccurrence); //criar ocorrencia
-router.get("/me", authMiddleware, listMyOccurrences); //listar minhas ocorrencias
-router.get("/", listOccurrences); //listar todas as ocorrencias
+// Criar ocorrência exige aprovação
+router.post("/", requireApprovedDocument, createOccurrence);
+
+// Listar minhas ocorrências exige aprovação (tem dados sensíveis)
+router.get("/me", requireApprovedDocument, listMyOccurrences);
 
 export default router;

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { childLogger } from "../config/logger";
 import { listAllOccurrencesAdmin } from "../controllers/occurrence.controller";
 import { isAdmin } from "../middlewares/admin.middleware";
 import { authMiddleware } from "../middlewares/auth.middleware";
@@ -12,13 +13,11 @@ import {
 } from "../schemas/occurrence.schema";
 
 const router = Router();
+const log = childLogger("admin");
 
 router.use(authMiddleware);
 router.use(isAdmin);
 
-// ============================================
-// Schemas locais (simples, não precisam de arquivo próprio)
-// ============================================
 const listUsersQuerySchema = z.object({
   query: z.object({
     page: z
@@ -54,10 +53,6 @@ const rejectUserSchema = z.object({
       .max(300, "Motivo deve ter no máximo 300 caracteres"),
   }),
 });
-
-// ============================================
-// Rotas
-// ============================================
 
 router.get("/users", validate(listUsersQuerySchema), async (req, res) => {
   try {
@@ -96,7 +91,7 @@ router.get("/users", validate(listUsersQuerySchema), async (req, res) => {
       users,
     });
   } catch (error) {
-    console.error("[LIST USERS ERROR]", error);
+    log.error({ err: error }, "Erro ao listar usuários");
     return res.status(500).json({ error: "Erro ao buscar usuários" });
   }
 });
@@ -108,7 +103,7 @@ router.get("/users/pending", async (_req, res) => {
     }).select("-password");
     return res.json({ users });
   } catch (error) {
-    console.error("[LIST PENDING USERS ERROR]", error);
+    log.error({ err: error }, "Erro ao listar pendentes");
     return res.status(500).json({
       error: "Erro ao listar usuários pendentes",
     });
@@ -132,12 +127,14 @@ router.patch(
         return res.status(404).json({ error: "Usuário não encontrado" });
       }
 
+      log.info({ userId: id, byAdmin: req.userId }, "Documento aprovado");
+
       return res.json({
         message: "Documento aprovado com sucesso",
         user,
       });
     } catch (error) {
-      console.error("[APPROVE USER ERROR]", error);
+      log.error({ err: error }, "Erro ao aprovar documento");
       return res.status(500).json({ error: "Erro ao aprovar documento" });
     }
   },
@@ -161,12 +158,14 @@ router.patch(
         return res.status(404).json({ message: "Usuário não encontrado" });
       }
 
+      log.info({ userId: id, byAdmin: req.userId, reason }, "Documento reprovado");
+
       return res.json({
         message: "Documento reprovado",
         user,
       });
     } catch (error) {
-      console.error("[REJECT USER ERROR]", error);
+      log.error({ err: error }, "Erro ao reprovar documento");
       return res.status(500).json({ message: "Erro ao reprovar documento" });
     }
   },
@@ -184,12 +183,14 @@ router.delete(
         return res.status(404).json({ message: "Usuário não encontrado" });
       }
 
+      log.warn({ userId: id, byAdmin: req.userId }, "Usuário excluído");
+
       return res.json({
         message: "Usuário excluído com sucesso",
         user,
       });
     } catch (error) {
-      console.error("[DELETE USER ERROR]", error);
+      log.error({ err: error }, "Erro ao excluir usuário");
       return res.status(500).json({ message: "Erro ao excluir usuário" });
     }
   },
@@ -212,12 +213,17 @@ router.delete(
         });
       }
 
+      log.warn(
+        { occurrenceId: id, byAdmin: req.userId, reason },
+        "Ocorrência excluída",
+      );
+
       return res.json({
         message: "Ocorrência excluída com sucesso",
         reason,
       });
     } catch (error) {
-      console.error("[DELETE OCCURRENCE ERROR]", error);
+      log.error({ err: error }, "Erro ao excluir ocorrência");
       return res.status(500).json({ message: "Erro ao excluir ocorrência" });
     }
   },

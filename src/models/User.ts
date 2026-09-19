@@ -66,7 +66,7 @@ const userSchema = new Schema(
 );
 
 // Índices secundários pra busca rápida (cpf e email já criam índice por unique)
-// userSchema.index({ documentStatus: 1 }); // habilite se for pesquisar muito por status
+ userSchema.index({ documentStatus: 1 }); // habilite se for pesquisar muito por status
 // userSchema.index({ fullName: 1 });        // habilite se for usar search por nome
 
 export const User = model("User", userSchema);

@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { Router } from "express";
 import jwt from "jsonwebtoken";
+import { childLogger } from "../config/logger";
 import { upload } from "../middlewares/upload.middleware";
 import { validate } from "../middlewares/validate.middleware";
 import { User } from "../models/User";
@@ -9,6 +10,7 @@ import { uploadToCloudinary } from "../services/upload.service";
 import { parseBrazilianDate } from "../utils/parseDate";
 
 const router = Router();
+const log = childLogger("auth");
 
 router.post(
   "/register",
@@ -16,7 +18,6 @@ router.post(
   validate(registerSchema),
   async (req, res) => {
     try {
-      // Após validate(), req.body já tem CPF normalizado (só dígitos)
       const { fullName, rg, cpf, birthDate, email, password } = req.body as {
         fullName: string;
         rg: string;
@@ -32,7 +33,6 @@ router.post(
         });
       }
 
-      // userExists busca por CPF normalizado (setter já cuida disso)
       const userExists = await User.findOne({
         $or: [{ email }, { cpf }],
       });
@@ -55,19 +55,21 @@ router.post(
       const user = await User.create({
         fullName,
         rg,
-        cpf, // já vem normalizado pelo Zod
+        cpf,
         birthDate: parseBrazilianDate(birthDate),
-        email, // já vem lowercase pelo Zod
+        email,
         password: hashedPassword,
         documentUrl,
       });
+
+      log.info({ userId: user._id.toString(), email }, "Usuário cadastrado");
 
       return res.status(201).json({
         message: "Usuário criado com sucesso",
         userId: user._id,
       });
     } catch (error) {
-      console.error("[REGISTER ERROR]", error);
+      log.error({ err: error }, "Erro no cadastro");
       return res.status(500).json({
         message: "Erro no cadastro",
       });
@@ -85,7 +87,6 @@ router.post(
         password: string;
       };
 
-      // login pode ser email ou CPF — normaliza ambos pra comparar
       const isCPF = /^\d+$/.test(login.replace(/\D/g, ""));
       const query = isCPF
         ? { cpf: login.replace(/\D/g, "") }
@@ -94,12 +95,14 @@ router.post(
       const user = await User.findOne(query);
 
       if (!user) {
+        log.warn({ login: login.slice(0, 4) + "***" }, "Login falhou - usuário não existe");
         return res.status(400).json({ message: "Credenciais inválidas" });
       }
 
       const passwordMatch = await bcrypt.compare(password, user.password);
 
       if (!passwordMatch) {
+        log.warn({ userId: user._id.toString() }, "Login falhou - senha incorreta");
         return res.status(400).json({ message: "Credenciais inválidas" });
       }
 
@@ -108,6 +111,8 @@ router.post(
         process.env.JWT_SECRET as string,
         { expiresIn: "1d" },
       );
+
+      log.info({ userId: user._id.toString() }, "Login bem-sucedido");
 
       return res.json({
         token,
@@ -122,7 +127,7 @@ router.post(
         },
       });
     } catch (error) {
-      console.error("[LOGIN ERROR]", error);
+      log.error({ err: error }, "Erro no login");
       return res.status(500).json({ message: "Erro no login" });
     }
   },
