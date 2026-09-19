@@ -19,66 +19,22 @@ const log = logger.child({ context: "server" });
 app.use(helmet());
 
 /**
- * Whitelist de origens permitidas.
+ * CORS permissivo — aceita qualquer origin.
  *
- * Fontes:
- * 1. ALLOWED_ORIGINS (env) — domínios de produção
- * 2. ALLOWED_ORIGINS_DEV (env) — origens de dev
- * 3. WEBVIEW_ORIGINS — origens do Capacitor/WebView (sempre)
+ * POR QUE: esta API usa JWT em header Authorization (não cookies),
+ * então não tem risco de CSRF. CORS estrito aqui só quebra clientes
+ * legítimos (APK Capacitor, alguns navegadores, requests internas).
+ *
+ * SEGURANÇA REAL fica por:
+ * - JWT obrigatório em rotas privadas
+ * - Rate limit (anti brute-force)
+ * - Helmet (headers de segurança)
+ * - Validação Zod (input malicioso)
+ * - bcrypt nas senhas
  */
-const WEBVIEW_ORIGINS = [
-    "capacitor://localhost",
-    "capacitor://android",
-    "capacitor://ios",
-    "http://localhost",
-    "https://localhost",
-    "file://",
-    "null",
-];
-
-const allowedOrigins = [
-  ...(process.env.ALLOWED_ORIGINS ?? "").split(","),
-  ...(process.env.ALLOWED_ORIGINS_DEV ?? "").split(","),
-  ...WEBVIEW_ORIGINS,
-]
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-
-log.info({ allowedOrigins }, "Origens CORS permitidas");
-
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // 🔍 LOG DE DEBUG: mostra EXATAMENTE qual origin chegou (ou null)
-      log.info({ origin }, "CORS request recebida");
-
-      // Em dev: permite qualquer coisa (sem origin = Postman/Insomnia)
-      if (!origin && process.env.NODE_ENV !== "production") {
-        return callback(null, true);
-      }
-
-      // Em prod: se origin for "null" string, permite (clientes WebView/Capacitor)
-      if (origin === "null") {
-        return callback(null, true);
-      }
-
-      // Em prod: bloqueia se origin não veio
-      if (!origin) {
-        log.warn({ origin }, "Origem vazia em produção - bloqueado");
-        return callback(new Error("Origem não permitida pelo CORS"));
-      }
-
-      if (allowedOrigins.length === 0) {
-        return callback(new Error("Origem não permitida pelo CORS"));
-      }
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      log.warn({ origin }, "Origem bloqueada pelo CORS");
-      return callback(new Error("Origem não permitida pelo CORS"));
-    },
+    origin: true, // ← aceita qualquer origin (incluindo null, undefined, file://)
     credentials: true,
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
