@@ -1,19 +1,15 @@
-import { Request, Response, NextFunction } from "express";
-import { User } from "../models/User";
+import { Response, NextFunction } from "express";
+import { AuthRequest } from "./auth.middleware";
 
-
-export async function isAdmin(
-    req: Request,
-    res: Response,
-    next: NextFunction
-) {
-    const user = await User.findById(req.userId);
-
-    if (!user || user.role !== 'ADMIN') {
-        return res.status(403).json({
-            message: "Acesso restrito a administradores",
-        })
-    }
-
-    next();
+export function isAdmin(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+){
+  if (req.userRole !== "ADMIN") {
+    return res.status(403).json({
+      message: "Acesso restrito a administradores",
+    })
+  }
+  next();
 }
