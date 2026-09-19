@@ -18,6 +18,14 @@ const log = logger.child({ context: "server" });
 
 app.use(helmet());
 
+/**
+ * Whitelist de origens permitidas.
+ *
+ * Fontes:
+ * 1. ALLOWED_ORIGINS (env) — domínios de produção
+ * 2. ALLOWED_ORIGINS_DEV (env) — origens de dev
+ * 3. WEBVIEW_ORIGINS — origens do Capacitor/WebView (sempre)
+ */
 const WEBVIEW_ORIGINS = [
     "capacitor://localhost",
     "capacitor://android",
@@ -25,6 +33,7 @@ const WEBVIEW_ORIGINS = [
     "http://localhost",
     "https://localhost",
     "file://",
+    "null",
 ];
 
 const allowedOrigins = [
@@ -40,12 +49,22 @@ log.info({ allowedOrigins }, "Origens CORS permitidas");
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Permite tools tipo Postman/Insomnia (sem origin) só em dev
+      // 🔍 LOG DE DEBUG: mostra EXATAMENTE qual origin chegou (ou null)
+      log.info({ origin }, "CORS request recebida");
+
+      // Em dev: permite qualquer coisa (sem origin = Postman/Insomnia)
       if (!origin && process.env.NODE_ENV !== "production") {
         return callback(null, true);
       }
 
+      // Em prod: se origin for "null" string, permite (clientes WebView/Capacitor)
+      if (origin === "null") {
+        return callback(null, true);
+      }
+
+      // Em prod: bloqueia se origin não veio
       if (!origin) {
+        log.warn({ origin }, "Origem vazia em produção - bloqueado");
         return callback(new Error("Origem não permitida pelo CORS"));
       }
 
@@ -76,7 +95,6 @@ const globalLimiter = rateLimit({
 });
 app.use(globalLimiter);
 
-// Rate limit auth
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
@@ -98,7 +116,6 @@ app.use("/api/private", privateRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/geocode", geocodeRoutes);
 
-// Error handler global
 app.use(
   (
     err: Error,
