@@ -1,4 +1,5 @@
 import { Schema, model } from "mongoose";
+import { createOccurrenceSchema } from "../schemas/occurrence.schema";
 
 const OcurrenceSchema = new Schema(
   {
@@ -48,22 +49,35 @@ const OcurrenceSchema = new Schema(
       type: Number,
       required: true,
     },
+    /**
+     * Campo GeoJSON para queries geoespaciais (Sprint 6).
+     * Formato obrigatório: { type: "Point", coordinates: [lng, lat] }
+     * O 2dsphere index usa esse campo pra queries $nearSphere / $geoWithin.
+     */
+    location: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point",
+      },
+      coordinates: {
+        type: [Number], // [longitude, latitude]
+        required: true,
+      },
+    },
   },
   {
     timestamps: true,
   },
 );
 
-// ============================================
-// ÍNDICES — ordem importa pra performance:
-// - userId: usado pra listMyOccurrences
-// - createdAt desc: feed do mapa (mais novo primeiro)
-// - city+state composto: filtro geográfico
-// - type: filtro por tipo de crime
-// ============================================
+// filtros e feeds
 OcurrenceSchema.index({ userId: 1, createdAt: -1 });
 OcurrenceSchema.index({ createdAt: -1 });
 OcurrenceSchema.index({ city: 1, state: 1, createdAt: -1 });
 OcurrenceSchema.index({ type: 1, createdAt: -1 });
+//queries geoespaciais (raio de X km a partir de um ponto)
+//2dsphere habilita $nearSphere, $geoWithin, $geoIntersects
+OcurrenceSchema.index({ location: "2dsphere"})
 
 export const Occurrence = model("Occurrence", OcurrenceSchema);
