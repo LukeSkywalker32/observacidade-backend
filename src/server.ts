@@ -12,6 +12,7 @@ import authRoutes from "./routes/auth.routes";
 import geocodeRoutes from "./routes/geocode.routes";
 import privateRoutes from "./routes/private.routes";
 import publicRoutes from "./routes/public.routes";
+import healthRoutes from "./routes/health.routes";
 
 const app = express();
 const log = logger.child({ context: "server" });
@@ -66,6 +67,7 @@ app.get("/", (_req, res) => {
   res.json({ status: "ok", service: "ObservaCidade API" });
 });
 
+app.use("/health", healthRoutes)
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/public", publicRoutes);
 app.use("/api/private", privateRoutes);
