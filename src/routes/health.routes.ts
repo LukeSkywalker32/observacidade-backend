@@ -1,24 +1,45 @@
-import { Router } from "express"
+import { type Request, type Response, Router } from "express";
+import mongoose from "mongoose";
+import { childLogger } from "../config/logger";
 
 const router = Router();
+const log = childLogger("health.route");
 
-router.get("/", async (_req, res) => {
-  try {
+router.get("/", async (_req: Request, res: Response) => {
     //Opcional: ping no mongo pra garantir conexao ativa
-    const mongoose =await import("mongoose");
-    if (mongoose.connection.db) {
-      await mongoose.connection.db.admin().ping();
+    const readyState = mongoose.connection.readyState;
+
+    if (readyState !== 1) {
+      log.warn({ readyState }, "MongoDB não esta conectado");
+      return res.status(503).json({
+        status: "down",
+        mongoDB: "down",
+        readyState,
+        reason: `MongoDB readyState=${readyState}`,
+        timestamp: new Date().toISOString()
+      })
     }
-    return res.json({
-      status: "ok",
-      timestamp: new Date().toISOString()
-    })
-  } catch (error) {
-    return res.status(503).json({
+
+    try {
+      await mongoose.connection.db?.admin().ping();
+      return res.json({
+        status: "ok",
+        mondoDB: "up",
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro desconhecido";
+      log.error({
+        err: error 
+      }, "Falha no ping do MongoDB");
+
+      return res.status(503).json({
       status: "down",
-      error: String(error),
-      timestamp: new Date().toISOString()
-    })
-  }
+      mongodb: "down",
+      reason: message,
+      timestamp: new Date().toISOString(),
+      })
+    }
 })
 export default router
